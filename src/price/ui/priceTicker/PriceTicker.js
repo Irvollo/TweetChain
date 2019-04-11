@@ -11,15 +11,15 @@ class PriceTicker extends Component {
 
   componentDidMount = () => {
       const {getBalance} = this.props;
-      setInterval(getBalance, 1500)
+      setTimeout(getBalance, 5000)
   }
 
   render() {
     const { balance } = this.props;
     return(
       <div>
-          <h1>Ticker</h1>
-          <h3>{balance}</h3>
+          <h1>Current Balance</h1>
+          <h3>{balance} Ξ</h3>
       </div>
     )
   }

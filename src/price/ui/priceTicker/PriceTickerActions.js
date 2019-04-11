@@ -6,6 +6,7 @@ const contract = require('truffle-contract')
 export const CURRENT_BALANCE = 'CURRENT_BALANCE'
 
 function currentBalance(balance) {
+
     return {
       type: CURRENT_BALANCE,
       balance
@@ -31,7 +32,7 @@ export function getBalance() {
             if (error) {
             console.error(error);
             }
-
+            console.log(accounts);
             const account = accounts[0];
 
             OraclizeContract.deployed().then(function(instance) {
@@ -40,15 +41,15 @@ export function getBalance() {
             // TODO Get Price
                 oraclizeInstance.getBalance.call(account, {from: account})
                 .then((balance) => {
-                // If no error, update user.
-                const newBalance = web3.fromWei(balance.toNumber(), "ether" );
-                console.log(balance, account, newBalance)
-                dispatch(currentBalance(newBalance))
-
+                    // If no error, update user.
+                    console.log(balance);
+                    const newBalance = web3.fromWei(balance.toNumber(), "ether" );
+                    console.log(newBalance)
+                    return dispatch(currentBalance(newBalance))
                 })
                 .catch(function(result) {
                 // If error...
-                    console.log('Error getting balance')
+                    console.log('Error getting balance', result);
                 })
             })
         })
