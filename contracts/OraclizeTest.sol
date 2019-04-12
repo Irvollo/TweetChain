@@ -14,15 +14,15 @@ contract OraclizeTest is usingOraclize {
     function OraclizeTest()
     payable
     public {
-        owner = msg.sender;
-
+        owner = msg.sender; 
+        
         emit LogUpdate(owner, address(this).balance);
 
         // Replace the next line with your version:
-        OAR = OraclizeAddrResolverI(0x6f485C8BF6fc43eA212E93BBF8ce046C7f1cb475);
+        OAR = OraclizeAddrResolverI(0xb1027089760D5b4b6257c46A2d747F7020FBD1a8);
 
         oraclize_setProof(proofType_TLSNotary | proofStorage_IPFS);
-        update();
+        update(); 
     }
 
     // Fallback function

@@ -1,11 +1,14 @@
 pragma solidity ^0.4.18;
 
 import "./internals/ERC721.sol";
+import "./internals/Ownable.sol";
+import "./internals/Pausable.sol";
 import "installed_contracts/oraclize-api/contracts/usingOraclize.sol";
 
-contract TweetChain is ERC721, usingOraclize {
+contract TweetChain is ERC721, Ownable, Pausable, usingOraclize {
   /*** CONSTANTS ***/
 
+  address public owner;
   string public constant name = "TweetChain";
   string public constant symbol = "TWEET";
 
@@ -37,7 +40,7 @@ contract TweetChain is ERC721, usingOraclize {
 
 
   /*** STORAGE ***/
-
+    
   Tweet[] tweets;
 
   mapping (uint256 => address) public tweetIdToOwner;
@@ -45,13 +48,101 @@ contract TweetChain is ERC721, usingOraclize {
   mapping (address => uint256) ownershipTweetCount;
   mapping (uint256 => address) public tweetIdToApproved;
 
+  mapping(bytes32 => string) internal queryToPost;
+  mapping(bytes32 => string) public tweetTexts;
+
 
   /*** EVENTS ***/
 
   event Mint(address owner, uint256 tokenId);
+  event LogInfo(string description);
+  event LogTextUpdate(string text);
+  event LogUpdate(address indexed _owner, uint indexed _balance);
 
 
   /*** INTERNAL FUNCTIONS ***/
+
+  /* Functions */
+  /// @notice The constuctor function for this contract, establishing the owner of the oracle, the intial balance of the contract, and the Oraclize Resolver address
+  /// @dev Owner management can be done through Open-Zeppelin's Ownable.sol, this contract needs ETH to function and should be initialized with funds
+  constructor()
+  payable
+  public
+  {
+      owner = msg.sender;
+
+      emit LogUpdate(owner, address(this).balance);
+
+      // Replace the next line with your version:
+      OAR = OraclizeAddrResolverI(0x6f485C8BF6fc43eA212E93BBF8ce046C7f1cb475);
+
+      oraclize_setProof(proofType_TLSNotary | proofStorage_IPFS);
+  }
+
+  /// @notice An internal function which checks that a particular string is not empty
+  /// @dev To be used in the Oraclize callback function to make sure the resulting text is not null
+  /// @param _s The string to check if empty/null
+  /// @return Returns false if the string is empty, and true otherwise
+  function stringNotEmpty(string _s)
+  internal
+  pure
+  returns(bool)
+  {
+    bytes memory tempString = bytes(_s);
+    if (tempString.length == 0) {
+        return false;
+    } else {
+        return true;
+    }
+  } 
+
+  /// @notice This function iniates the oraclize process for a Twitter post
+  /// @dev This contract needs ether to be able to call the oracle, which is why this function is also payable
+  /// @param _postId The twitter post to fetch with the oracle. Expecting "<user>/status/<id>"
+  function oraclizeTweet(string _postId)
+  public
+  payable
+  whenNotPaused
+  {
+      // Check if we have enough remaining funds
+      if (oraclize_getPrice("URL") > address(this).balance) {
+          emit LogInfo("Oraclize query was NOT sent, please add some ETH to cover for the query fee");
+      } else {
+          emit LogInfo("Oraclize query was sent, standing by for the answer..");
+          // Using XPath to to fetch the right element in the JSON response
+          string memory query = string(abi.encodePacked("html(https://twitter.com/", _postId, ").xpath(//div[contains(@class, 'permalink-tweet-container')]//p[contains(@class, 'tweet-text')]//text())"));
+
+          bytes32 queryId = oraclize_query("URL", query, 6721975);
+          queryToPost[queryId] = _postId;
+      }
+  }
+
+  /// @notice The callback function that Oraclize calls when returning a result
+  /// @dev Will store the text of a Twitter post into this contract's storage
+  /// @param _id The query ID generated when calling oraclize_query
+  /// @param _result The result from Oraclize, should be the Twitter post text
+  /// @param _proof The authenticity proof returned by Oraclize, not currently being used in this contract, but it can be upgraded to do so
+  function __callback(bytes32 _id, string _result, bytes _proof)
+  public
+  whenNotPaused
+  {
+      require(
+          msg.sender == oraclize_cbAddress(),
+          "The caller of this function is not the offical Oraclize Callback Address."
+          );
+      require(
+          stringNotEmpty(queryToPost[_id]),
+          "The Oraclize query ID does not match an Oraclize request made from this contract."
+          );
+
+      bytes32 postHash = keccak256(abi.encodePacked(queryToPost[_id]));
+      tweetTexts[postHash] = _result;
+
+      // emit LogTextUpdate(_result);
+  }  
+
+
+  /* ERC721 Functions */
 
   function _owns(address _claimant, uint256 _tweetId) internal view returns (bool) {
     return tweetIdToOwner[_tweetId] == _claimant;

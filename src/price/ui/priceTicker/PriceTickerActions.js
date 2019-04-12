@@ -4,12 +4,19 @@ import store from '../../../store'
 const contract = require('truffle-contract')
 
 export const CURRENT_BALANCE = 'CURRENT_BALANCE'
+export const SET_CURRENT_PRICE = 'SET_CURRENT_PRICE'
 
 function currentBalance(balance) {
-
     return {
       type: CURRENT_BALANCE,
       balance
+    }
+  }
+
+function setCurrentPrice(currentPrice) {
+    return {
+      type: SET_CURRENT_PRICE,
+      currentPrice
     }
   }
 
@@ -32,27 +39,58 @@ export function getBalance() {
             if (error) {
             console.error(error);
             }
-            console.log(accounts);
             const account = accounts[0];
 
             OraclizeContract.deployed().then(function(instance) {
-                oraclizeInstance = instance
-
-            // TODO Get Price
-                oraclizeInstance.getBalance.call(account, {from: account})
-                .then((balance) => {
-                    // If no error, update user.
-                    console.log(balance);
-                    const newBalance = web3.fromWei(balance.toNumber(), "ether" );
-                    console.log(newBalance)
-                    return dispatch(currentBalance(newBalance))
-                })
-                .catch(function(result) {
-                // If error...
-                    console.log('Error getting balance', result);
-                })
+                oraclizeInstance = instance;
+                  
+                return oraclizeInstance.getBalance.call(account, {from: account});
+              }).then(function(value) {
+                const balance = web3.fromWei(value.valueOf(), 'ether');
+                dispatch(currentBalance(balance));
+              }).catch(function(e) {
+                console.log(e);
+                self.setStatus("Error getting balance; see console log.");
+              });
             })
-        })
+        }
+    } else {
+        console.error('Web3 is not initialized.');
+    }
+}
+
+export function initEventListeners() {
+    let web3 = store.getState().web3.web3Instance
+    // Double-check web3's status.
+    if (web3) {
+
+        return function(dispatch) {
+        // Using truffle-contract we create the authentication object.
+        const OraclizeContract = contract(contract_build_artifacts);
+        OraclizeContract.setProvider(web3.currentProvider)
+
+        // Declaring this for later so we can chain functions on Authentication.
+        let oraclizeInstance
+
+        OraclizeContract.deployed().then(function(instance) {
+            oraclizeInstance = instance;
+            //var LogCreated = instance.LogUpdate({},{fromBlock: 0, toBlock: 'latest'});
+            var LogPriceUpdate = oraclizeInstance.LogPriceUpdate({},{fromBlock: 0, toBlock: 'latest'});
+            // var LogInfo = instance.LogInfo({},{fromBlock: 0, toBlock: 'latest'});
+
+            LogPriceUpdate.watch(function(err, result){
+                if(!err){
+                    console.log(result.args);
+                    const {price} = result.args;
+                    dispatch(setCurrentPrice(price));
+                }else{
+                    console.log(err)
+                }
+            })
+          }).catch(function(e) {
+            console.log(e);
+            self.setStatus("Error getting balance; see console log.");
+          });
         }
     } else {
         console.error('Web3 is not initialized.');

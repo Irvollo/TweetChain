@@ -13,6 +13,7 @@ import Dashboard from './layouts/dashboard/Dashboard'
 import SignUp from './user/layouts/signup/SignUp'
 import Profile from './user/layouts/profile/Profile'
 import Test from './price/layouts/test/Test'
+import Main from './tweet/layouts/main/Main'
 
 // Redux Store
 import store from './store'
@@ -33,7 +34,7 @@ ReactDOM.render((
     <Provider store={store}>
       <Router history={history}>
         <Route path="/" component={App}>
-          <IndexRoute component={Test} />
+          <IndexRoute component={Main} />
           <Route path="dashboard" component={UserIsAuthenticated(Dashboard)} />
           <Route path="signup" component={UserIsNotAuthenticated(SignUp)} />
           <Route path="profile" component={UserIsAuthenticated(Profile)} />
